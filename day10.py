@@ -84,7 +84,65 @@ def walk_point(pt,grid,walls,rows,cols,delta):
 
     return False
 
+def can_squeak_through(pt1,pt2,grid,rows,cols,direction,invalid_coords):
+    i1,j1 = pt1
+    i2,j2 = pt2
 
+    delta = None
+    if direction == "L":
+        delta = (0,-1)
+    elif direction == "U":
+        delta = (-1,0)
+    elif direction == "R":
+        delta = (0,1)
+    elif direction == "D":
+        delta = (1,0)
+    else:
+        raise NotImplementedError
+
+    dx, dy = delta
+
+    while 0 <= i1 < rows and 0 <= j1 < cols:
+        if (i1,j1) in invalid_coords or (i2,j2) in invalid_coords:
+            break
+
+        if not is_squeak_through((i1,j1),(i2,j2),grid,direction):
+            return False
+
+
+
+        i1 += dx
+        j1 += dy
+
+        i2 += dx
+        j2 += dy
+
+    return True
+
+
+def is_squeak_through(pt1,pt2,grid,direction):
+    # Check for vertical and horizontal squeak through
+
+    tile1 = grid[pt1[0]][pt1[1]]
+    tile2 = grid[pt2[0]][pt2[1]]
+
+    valid_vertical = set()
+    valid_vertical.update([("|","|"),("|","F"),("|","L"),("J","L"),("J","F"),("7","F"),("J","|"),("7","|"),("7","L")])
+
+    valid_horizontal = set()
+    valid_horizontal.update([("-","-"),("-","7"),("-","F"),("L","-"),("J","-"),("L","7"),("L","F"),("J","7"),("J","F")])
+
+    # Vertical Squeak Through
+    if direction == "U" or direction == "D":
+        if (tile1,tile2) in valid_vertical:
+            return True
+    # Horizontal Squeak Through
+    elif direction == "L" or direction == "R":
+        if (tile1, tile2) in valid_horizontal:
+            return True
+
+
+    return False
 
 def part1(grid,start):
     # Part 1
@@ -163,7 +221,6 @@ def part2(grid,start,main_loop):
             if q_ready:
                 break
 
-
         # Now expand upon the identified node
         while q:
             current = q.pop()
@@ -172,15 +229,18 @@ def part2(grid,start,main_loop):
 
             for neighbor in get_neighbors(current,rows,cols):
                 if neighbor not in visited:
-                    if get_tile(neighbor,grid) == ".":
-                        q.append(neighbor)
+                    q.append(neighbor)
+                    visited.add(neighbor)
                     remaining_area -= 1
+        if not zone:
+            break
         zones.append(zone)
 
     # Second, identify if those zones are contained by the main loop
 
     #   a zone is contained when an infinitesimal horizontal and vertical line collides
     #   with walls a both ends
+
     valid_zones = []
     for i,zone in enumerate(zones):
         pt = list(zone)[0]
@@ -200,13 +260,95 @@ def part2(grid,start,main_loop):
 
         valid_zones.append(i)
 
-    print(valid_zones)
-
-
-
-
-
     # Lastly, check that zones satisfy the squeak through property
+    #   a zone will become invalid if it comes into contact with previously
+    #   marked invalid zone or the edge of the grid
+
+    # Create set of coords that have already been marked invalid
+    invalid_zones = list(set(list(range(len(zones)))).difference(valid_zones))
+    invalid_coords = set()
+    for i in invalid_zones:
+        invalid_coords.update(zones[i])
+
+
+    for i in valid_zones:
+        visited = set()
+        q = [list(zones[i])[0]]
+        complete = False
+        while q and not complete:
+            current = q.pop()
+            x,y = current
+            visited.add(current)
+
+            # Check walls for squeak through
+            for neighbor in get_neighbors(current,rows,cols):
+                if neighbor in main_loop:
+                    visited.add(neighbor)
+                    # determine which direction to check squeak through
+                    direction = None
+                    neighbor1 = None
+                    neighbor2 = None
+                    if neighbor == (x,y-1): # left
+                        direction = "L"
+                        neighbor1 = (x-1,y - 1)
+                        neighbor2 = (x+1,y - 1)
+                    elif neighbor == (x - 1,y): # up
+                        direction = "U"
+                        neighbor1 = (x - 1,y - 1)
+                        neighbor2 = (x - 1,y + 1)
+                    elif neighbor == (x,y+1): # right
+                        direction = "R"
+                        neighbor1 = (x - 1,y + 1)
+                        neighbor2 = (x + 1,y + 1)
+                    elif neighbor == (x+1,y): # down
+                        direction = "D"
+                        neighbor1 = (x + 1,y - 1)
+                        neighbor2 = (x + 1,y + 1)
+                    else:
+                        raise NotImplementedError
+
+                    if can_squeak_through(neighbor1,neighbor,grid,rows,cols,direction,invalid_coords):
+                        invalid_zones.append(i)
+                        invalid_coords.update(list(zones[i]))
+                        complete = True
+                        break
+                    if can_squeak_through(neighbor,neighbor2,grid,rows,cols,direction,invalid_coords):
+                        invalid_zones.append(i)
+                        invalid_coords.update(list(zones[i]))
+                        complete = True
+                        break
+                elif neighbor not in visited:
+                    q.append(neighbor)
+
+    final_zones = set(valid_zones).difference(invalid_zones)
+
+    area = 0
+    for i in final_zones:
+        area += len(zones[i])
+
+    print("Part 2: ",area)
+
+def calculate_polygon_area(coordinates: list[tuple[int, int]]) -> float:
+    """Shoelace formula"""
+    print(len(coordinates))
+    x, y = zip(*coordinates)
+    return 0.5 * abs(
+        sum(x[i] * y[i - 1] - x[i - 1] * y[i] for i in range(len(coordinates)))
+    )
+
+
+def part_two(area: float, loop_size: int) -> int:
+    """Pick's theorem"""
+    return int(area - 0.5 * loop_size + 1)
+
+def part2_with_shoelace_and_pick(loop):
+    x, y = zip(*loop)
+    area =  0.5 * abs(
+        sum(x[i] * y[i - 1] - x[i - 1] * y[i] for i in range(len(loop)))
+    )
+
+    print("Part 2: ",int(area - 0.5 * len(loop) + 1))
+
 
 def main():
     with open("./inputs/day10.txt") as f:
@@ -224,7 +366,8 @@ def main():
 
     main_loop = part1(grid,start)
 
-    part2(grid,start,main_loop)
+    #part2(grid,start,main_loop)
+    area = calculate_polygon_area(main_loop)
 
 
 
