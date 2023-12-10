@@ -163,13 +163,13 @@ def part1(grid,start):
     for search_dir in search_directions:
         q = [search_dir]
         path_count = 2
-        loop = set()
-        loop.add(start)
+        loop = []
+        loop.append(start)
 
         while q:
             current = q.pop()
             i,j = current
-            loop.add(current)
+            loop.append(current)
 
             connections = get_connections(current,grid[i][j],rows,cols)
             if len(connections) == 2 and prev in connections:
@@ -328,25 +328,16 @@ def part2(grid,start,main_loop):
 
     print("Part 2: ",area)
 
-def calculate_polygon_area(coordinates: list[tuple[int, int]]) -> float:
-    """Shoelace formula"""
-    print(len(coordinates))
-    x, y = zip(*coordinates)
-    return 0.5 * abs(
-        sum(x[i] * y[i - 1] - x[i - 1] * y[i] for i in range(len(coordinates)))
-    )
-
-
-def part_two(area: float, loop_size: int) -> int:
-    """Pick's theorem"""
-    return int(area - 0.5 * loop_size + 1)
 
 def part2_with_shoelace_and_pick(loop):
+
+    # Shoelace formula gives area of any ccw oriented set of points that form a polygon
     x, y = zip(*loop)
     area =  0.5 * abs(
         sum(x[i] * y[i - 1] - x[i - 1] * y[i] for i in range(len(loop)))
     )
 
+    # Pick's theorem will give all the integer points inside the polygons area
     print("Part 2: ",int(area - 0.5 * len(loop) + 1))
 
 
@@ -367,7 +358,7 @@ def main():
     main_loop = part1(grid,start)
 
     #part2(grid,start,main_loop)
-    area = calculate_polygon_area(main_loop)
+    part2_with_shoelace_and_pick(main_loop)
 
 
 
